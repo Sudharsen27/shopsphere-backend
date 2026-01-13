@@ -1,0 +1,36 @@
+// const express = require("express");
+// const {
+//   createProduct,
+//   getProducts,
+//   getProductById,
+//   updateProduct,
+//   deleteProduct,
+// } = require("../controllers/productController");
+
+// const protect = require("../middlewares/authMiddleware");
+// const adminOnly = require("../middlewares/adminMiddleware");
+
+// const router = express.Router();
+
+// // Public
+// router.get("/", getProducts);
+// router.get("/:id", getProductById);
+
+// // Admin
+// router.post("/", protect, adminOnly, createProduct);
+// router.put("/:id", protect, adminOnly, updateProduct);
+// router.delete("/:id", protect, adminOnly, deleteProduct);
+
+// module.exports = router;
+
+import express from "express";
+import { createProduct } from "../controllers/productController.js";
+import protect from "../middleware/authMiddleware.js";
+import adminOnly from "../middleware/adminMiddleware.js";
+
+const router = express.Router();
+
+// 🔐 Admin only
+router.post("/", protect, adminOnly, createProduct);
+
+export default router;
