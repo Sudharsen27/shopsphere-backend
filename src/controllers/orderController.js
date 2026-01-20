@@ -60,3 +60,50 @@ export const getAllOrders = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc    Mark order as paid
+// @route   PUT /api/orders/:id/pay
+// @access  Private
+export const markOrderAsPaid = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.isPaid = true;
+    order.paidAt = Date.now();
+
+    const updatedOrder = await order.save();
+    res.json({
+      message: "Order marked as paid",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark order as delivered
+// @route   PUT /api/orders/:id/deliver
+// @access  Admin
+export const markOrderAsDelivered = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.isDelivered = true;
+    order.deliveredAt = Date.now();
+
+    const updatedOrder = await order.save();
+    res.json({
+      message: "Order marked as delivered",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
