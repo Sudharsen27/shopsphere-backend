@@ -90,15 +90,16 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration (supports production: single URL or comma-separated list)
+const frontendUrls = process.env.FRONTEND_URL || "http://localhost:3000";
+const corsOrigins = frontendUrls.split(",").map((url) => url.trim());
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
   optionsSuccessStatus: 200,
 };
-
 app.use(cors(corsOptions));
 
 // Body parser middleware
@@ -143,8 +144,11 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === "production";
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`📡 API URL: http://localhost:${PORT}`);
+  if (!isProduction) {
+    console.log(`📡 Local API: http://localhost:${PORT}`);
+  }
 });
