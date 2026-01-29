@@ -26,20 +26,23 @@
 
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-
+import { authLimiter } from "../middleware/rateLimiter.js";
+import { validateLogin, validateRegister } from "../middleware/validationMiddleware.js";
 import {
   loginUser,
   registerUser,
+  verifyToken,
 } from "../controllers/authController.js";
 import { getUserProfile } from "../controllers/userController.js";
 
 const router = express.Router();
 
-// 🔐 AUTH
-router.post("/login", loginUser);
-router.post("/register", registerUser);
+// 🔐 AUTH ROUTES (with rate limiting and validation)
+router.post("/register", authLimiter, validateRegister, registerUser);
+router.post("/login", authLimiter, validateLogin, loginUser);
 
-// 👤 PROFILE (Protected)
+// 👤 PROFILE & TOKEN VERIFICATION (Protected)
+router.get("/verify", protect, verifyToken);
 router.get("/profile", protect, getUserProfile);
 
 export default router;
