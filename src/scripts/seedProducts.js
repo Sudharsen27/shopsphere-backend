@@ -81,7 +81,7 @@ const products = [
     name: "Power Bank 20000mAh",
     description: "High-capacity power bank with fast charging support. Charge your devices multiple times on the go.",
     price: 2499,
-    image: "https://images.unsplash.com/photo-1609091839311-d5365f371f2d?w=500",
+    image: "https://images.unsplash.com/photo-1609091839311-d5365f371f2d?w=500&auto=format&fit=crop&q=80",
     countInStock: 55,
     category: "Electronics",
     brand: "PowerMax",

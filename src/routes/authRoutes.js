@@ -32,6 +32,8 @@ import {
   loginUser,
   registerUser,
   verifyToken,
+  updateProfile,
+  changePassword,
 } from "../controllers/authController.js";
 import { getUserProfile } from "../controllers/userController.js";
 
@@ -44,5 +46,7 @@ router.post("/login", authLimiter, validateLogin, loginUser);
 // 👤 PROFILE & TOKEN VERIFICATION (Protected)
 router.get("/verify", protect, verifyToken);
 router.get("/profile", protect, getUserProfile);
+router.put("/profile", protect, updateProfile);
+router.put("/password", protect, changePassword);
 
 export default router;

@@ -204,3 +204,100 @@ export const verifyToken = async (req, res) => {
     );
   }
 };
+
+// UPDATE USER PROFILE
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const userId = req.user._id;
+
+    // Check if email is being changed and if it's already taken
+    if (email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingUser) {
+        return sendErrorResponse(res, 400, "Email already in use");
+      }
+    }
+
+    // Update user
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendErrorResponse(res, 404, "User not found");
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = email.toLowerCase();
+
+    await user.save();
+
+    return sendSuccessResponse(res, 200, "Profile updated successfully", {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    return sendErrorResponse(
+      res,
+      500,
+      "Internal server error. Please try again later."
+    );
+  }
+};
+
+// CHANGE PASSWORD
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    if (!currentPassword || !newPassword) {
+      return sendErrorResponse(
+        res,
+        400,
+        "Current password and new password are required"
+      );
+    }
+
+    if (newPassword.length < 6) {
+      return sendErrorResponse(
+        res,
+        400,
+        "New password must be at least 6 characters"
+      );
+    }
+
+    // Get user with password
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return sendErrorResponse(res, 404, "User not found");
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isPasswordValid) {
+      return sendErrorResponse(res, 401, "Current password is incorrect");
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+
+    return sendSuccessResponse(res, 200, "Password changed successfully");
+  } catch (error) {
+    console.error("Change password error:", error);
+    return sendErrorResponse(
+      res,
+      500,
+      "Internal server error. Please try again later."
+    );
+  }
+};

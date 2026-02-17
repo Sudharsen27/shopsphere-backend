@@ -78,14 +78,74 @@ export const createProduct = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
-// @desc    Get all products
-// @route   GET /api/products
+// @desc    Get all products (with search, filter, sort)
+// @route   GET /api/products?search=keyword&category=Electronics&minPrice=1000&maxPrice=5000&sort=price&order=asc
 // @access  Public
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find();
-    res.json(products);
+    const {
+      search,
+      category,
+      brand,
+      minPrice,
+      maxPrice,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    // Build query
+    const query = {};
+
+    // Search by name, description, brand
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { brand: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    // Filter by brand
+    if (brand) {
+      query.brand = brand;
+    }
+
+    // Filter by price range
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    // Build sort object
+    const sortOrder = order === "asc" ? 1 : -1;
+    const sortObj = {};
+    sortObj[sort] = sortOrder;
+
+    // Execute query
+    const products = await Product.find(query)
+      .sort(sortObj)
+      .limit(100); // Limit to prevent huge responses
+
+    // Get unique categories and brands for filters
+    const categories = await Product.distinct("category");
+    const brands = await Product.distinct("brand");
+
+    res.json({
+      products,
+      filters: {
+        categories,
+        brands,
+      },
+      total: products.length,
+    });
   } catch (error) {
+    console.error("Get products error:", error);
     res.status(500).json({ message: "Failed to fetch products" });
   }
 };
