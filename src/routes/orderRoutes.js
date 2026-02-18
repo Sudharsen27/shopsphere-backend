@@ -69,6 +69,7 @@ import {
   createOrder,
   getMyOrders,
   getAllOrders,
+  getOrderById,
   markOrderAsPaid,
   markOrderAsDelivered,
 } from "../controllers/orderController.js";
@@ -92,6 +93,9 @@ router.get("/myorders", protect, getMyOrders);
 
 // 🔐 Get all orders (Admin only)
 router.get("/", protect, adminOnly, getAllOrders);
+
+// 🔒 Get single order by ID (User can see their own, Admin can see any)
+router.get("/:id", protect, getOrderById);
 
 // 🔒 Mark order as paid (User)
 router.put("/:id/pay", protect, markOrderAsPaid);

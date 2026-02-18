@@ -386,6 +386,42 @@ export const markOrderAsPaid = async (req, res) => {
 };
 
 // ==================================================
+// @desc    Get single order by ID
+// @route   GET /api/orders/:id
+// @access  Private (User can only see their own orders, Admin can see any)
+// ==================================================
+export const getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate(
+      "user",
+      "name email"
+    );
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Check if user owns the order or is admin
+    if (
+      order.user._id.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        message: "Not authorized to view this order",
+      });
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error("Get order by ID error:", error);
+    if (error.name === "CastError") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    res.status(500).json({ message: "Failed to fetch order" });
+  }
+};
+
+// ==================================================
 // @desc    Mark order as delivered
 // @route   PUT /api/orders/:id/deliver
 // @access  Admin

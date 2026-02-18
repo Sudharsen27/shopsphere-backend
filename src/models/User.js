@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
         /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
         "Please provide a valid email address",
       ],
-      // unique: true automatically creates a unique index, no need for explicit index()
+      // Index is defined below using schema.index() to avoid duplicate
     },
     password: {
       type: String,
@@ -55,7 +55,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Note: email index is automatically created by unique: true above
+// Index for faster email lookups
+userSchema.index({ email: 1 });
+
 // Index for role-based queries
 userSchema.index({ role: 1 });
 
