@@ -96,6 +96,10 @@ import {
   updateProduct,
   deleteProduct
 } from "../controllers/productController.js";
+import {
+  getProductReviews,
+  createProductReview,
+} from "../controllers/reviewController.js";
 
 import protect from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
@@ -105,6 +109,10 @@ const router = express.Router();
 // ===== PUBLIC ROUTES =====
 router.get("/", getProducts);
 router.get("/:id", getProductById);
+router.get("/:id/reviews", getProductReviews); // Get reviews for a product
+
+// ===== PROTECTED ROUTES (Logged-in users) =====
+router.post("/:id/reviews", protect, createProductReview); // Create review
 
 // ===== ADMIN ROUTES =====
 router.post("/", protect, adminOnly, createProduct);

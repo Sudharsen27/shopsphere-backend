@@ -204,7 +204,21 @@ export const getProductById = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    res.json(product);
+    // Calculate average rating from reviews
+    const Review = (await import("../models/Review.js")).default;
+    const reviews = await Review.find({ product: req.params.id });
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
+    const numReviews = reviews.length;
+
+    // Convert product to object and add rating info
+    const productObj = product.toObject();
+    productObj.rating = {
+      average: Math.round(averageRating * 10) / 10,
+      count: numReviews,
+    };
+
+    res.json(productObj);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

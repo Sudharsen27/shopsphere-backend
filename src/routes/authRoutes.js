@@ -26,7 +26,7 @@
 
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-import { authLimiter } from "../middleware/rateLimiter.js";
+import { authLimiter, verifyLimiter } from "../middleware/rateLimiter.js";
 import { validateLogin, validateRegister } from "../middleware/validationMiddleware.js";
 import {
   loginUser,
@@ -43,8 +43,8 @@ const router = express.Router();
 router.post("/register", authLimiter, validateRegister, registerUser);
 router.post("/login", authLimiter, validateLogin, loginUser);
 
-// 👤 PROFILE & TOKEN VERIFICATION (Protected)
-router.get("/verify", protect, verifyToken);
+// 👤 PROFILE & TOKEN VERIFICATION (Protected with separate rate limiter)
+router.get("/verify", verifyLimiter, protect, verifyToken);
 router.get("/profile", protect, getUserProfile);
 router.put("/profile", protect, updateProfile);
 router.put("/password", protect, changePassword);
