@@ -336,7 +336,22 @@ export const getMyOrders = async (req, res) => {
       user: req.user._id,
     }).sort({ createdAt: -1 });
 
-    res.json(orders);
+    // Calculate status for each order if not set
+    const ordersWithStatus = orders.map((order) => {
+      const orderObj = order.toObject();
+      if (!orderObj.status) {
+        if (orderObj.isDelivered) {
+          orderObj.status = "delivered";
+        } else if (orderObj.isPaid) {
+          orderObj.status = "processing";
+        } else {
+          orderObj.status = "pending";
+        }
+      }
+      return orderObj;
+    });
+
+    res.json(ordersWithStatus);
   } catch (error) {
     console.error("Get my orders error:", error);
     res.status(500).json({ message: "Failed to fetch orders" });
@@ -376,12 +391,49 @@ export const markOrderAsPaid = async (req, res) => {
 
     order.isPaid = true;
     order.paidAt = Date.now();
+    order.status = "processing"; // Update status when paid
 
     const updatedOrder = await order.save();
     res.json(updatedOrder);
   } catch (error) {
     console.error("Mark paid error:", error);
     res.status(500).json({ message: "Failed to mark order as paid" });
+  }
+};
+
+// ==================================================
+// @desc    Get single order by ID
+// @route   GET /api/orders/:id
+// @access  Private (User can only see their own orders, Admin can see all)
+// ==================================================
+export const getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Check if user owns the order or is admin
+    if (order.user.toString() !== req.user._id.toString() && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized to view this order" });
+    }
+
+    // Calculate status if not set
+    if (!order.status) {
+      if (order.isDelivered) {
+        order.status = "delivered";
+      } else if (order.isPaid) {
+        order.status = "processing";
+      } else {
+        order.status = "pending";
+      }
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error("Get order by ID error:", error);
+    res.status(500).json({ message: "Failed to fetch order" });
   }
 };
 
@@ -400,6 +452,7 @@ export const markOrderAsDelivered = async (req, res) => {
 
     order.isDelivered = true;
     order.deliveredAt = Date.now();
+    order.status = "delivered";
 
     const updatedOrder = await order.save();
     res.json(updatedOrder);

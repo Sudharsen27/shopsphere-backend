@@ -66,9 +66,24 @@ const orderSchema = new mongoose.Schema(
     deliveredAt: {
       type: Date,
     },
+    status: {
+      type: String,
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      default: "pending",
+    },
   },
   { timestamps: true }
 );
+
+// Virtual to calculate status based on isPaid and isDelivered
+orderSchema.virtual("calculatedStatus").get(function () {
+  if (this.isDelivered) return "delivered";
+  if (this.isPaid) return "processing";
+  return "pending";
+});
+
+// Ensure virtuals are included in JSON
+orderSchema.set("toJSON", { virtuals: true });
 
 const Order = mongoose.model("Order", orderSchema);
 export default Order;
