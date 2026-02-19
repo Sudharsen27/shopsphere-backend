@@ -1,25 +1,23 @@
 import Review from "../models/Review.js";
 import Product from "../models/Product.js";
 
-// ==================================================
-// @desc    Get reviews for a product
+// @desc    Get all reviews for a product
 // @route   GET /api/products/:id/reviews
 // @access  Public
-// ==================================================
 export const getProductReviews = async (req, res) => {
   try {
     const productId = req.params.id;
 
-    // Verify product exists
+    // Check if product exists
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Get reviews with user information
+    // Get all reviews for the product
     const reviews = await Review.find({ product: productId })
-      .populate("user", "name email")
-      .sort({ createdAt: -1 }); // Newest first
+      .populate("user", "name")
+      .sort({ createdAt: -1 });
 
     // Calculate average rating
     const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
@@ -31,42 +29,34 @@ export const getProductReviews = async (req, res) => {
       totalReviews: reviews.length,
     });
   } catch (error) {
-    console.error("Get product reviews error:", error);
-    res.status(500).json({ message: "Failed to fetch reviews" });
+    console.error("Get reviews error:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// ==================================================
-// @desc    Create a review for a product
+// @desc    Create a new review
 // @route   POST /api/products/:id/reviews
-// @access  Private (Logged-in users only)
-// ==================================================
+// @access  Private
 export const createProductReview = async (req, res) => {
   try {
     const productId = req.params.id;
     const { rating, comment } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     // Validate input
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({
-        message: "Rating must be between 1 and 5",
-      });
+      return res.status(400).json({ message: "Rating must be between 1 and 5" });
     }
 
     if (!comment || comment.trim().length === 0) {
-      return res.status(400).json({
-        message: "Comment is required",
-      });
+      return res.status(400).json({ message: "Comment is required" });
     }
 
-    if (comment.trim().length > 1000) {
-      return res.status(400).json({
-        message: "Comment cannot exceed 1000 characters",
-      });
+    if (comment.length > 1000) {
+      return res.status(400).json({ message: "Comment cannot exceed 1000 characters" });
     }
 
-    // Verify product exists
+    // Check if product exists
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
@@ -79,38 +69,30 @@ export const createProductReview = async (req, res) => {
     });
 
     if (existingReview) {
-      return res.status(400).json({
-        message: "You have already reviewed this product",
-      });
+      return res.status(400).json({ message: "You have already reviewed this product" });
     }
 
     // Create review
-    const review = new Review({
+    const review = await Review.create({
       product: productId,
       user: userId,
-      rating: Number(rating),
+      rating,
       comment: comment.trim(),
     });
 
-    const savedReview = await review.save();
-
-    // Populate user info for response
-    await savedReview.populate("user", "name email");
+    // Populate user info
+    await review.populate("user", "name");
 
     res.status(201).json({
       message: "Review created successfully",
-      review: savedReview,
+      review,
     });
   } catch (error) {
     console.error("Create review error:", error);
-    
-    // Handle duplicate key error (unique index violation)
     if (error.code === 11000) {
-      return res.status(400).json({
-        message: "You have already reviewed this product",
-      });
+      // Duplicate key error (unique index violation)
+      return res.status(400).json({ message: "You have already reviewed this product" });
     }
-
-    res.status(500).json({ message: "Failed to create review" });
+    res.status(500).json({ message: error.message });
   }
 };

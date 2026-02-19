@@ -43,7 +43,7 @@ const router = express.Router();
 router.post("/register", authLimiter, validateRegister, registerUser);
 router.post("/login", authLimiter, validateLogin, loginUser);
 
-// 👤 PROFILE & TOKEN VERIFICATION (Protected with separate rate limiter)
+// 👤 PROFILE & TOKEN VERIFICATION (Protected)
 router.get("/verify", verifyLimiter, protect, verifyToken);
 router.get("/profile", protect, getUserProfile);
 router.put("/profile", protect, updateProfile);

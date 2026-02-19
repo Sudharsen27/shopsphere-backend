@@ -109,10 +109,10 @@ const router = express.Router();
 // ===== PUBLIC ROUTES =====
 router.get("/", getProducts);
 router.get("/:id", getProductById);
-router.get("/:id/reviews", getProductReviews); // Get reviews for a product
+router.get("/:id/reviews", getProductReviews);
 
-// ===== PROTECTED ROUTES (Logged-in users) =====
-router.post("/:id/reviews", protect, createProductReview); // Create review
+// ===== PROTECTED ROUTES =====
+router.post("/:id/reviews", protect, createProductReview);
 
 // ===== ADMIN ROUTES =====
 router.post("/", protect, adminOnly, createProduct);

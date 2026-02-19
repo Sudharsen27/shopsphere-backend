@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
 
-const reviewSchema = new mongoose.Schema(
+const reviewSchema = mongoose.Schema(
   {
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
       required: true,
-      index: true, // Index for faster queries
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -22,8 +21,7 @@ const reviewSchema = new mongoose.Schema(
     comment: {
       type: String,
       required: true,
-      trim: true,
-      maxlength: [1000, "Comment cannot exceed 1000 characters"],
+      maxlength: 1000,
     },
   },
   {
@@ -31,8 +29,11 @@ const reviewSchema = new mongoose.Schema(
   }
 );
 
-// Prevent duplicate reviews - one user can only review a product once
+// Ensure one review per user per product
 reviewSchema.index({ product: 1, user: 1 }, { unique: true });
+
+// Index for faster queries
+reviewSchema.index({ product: 1, createdAt: -1 });
 
 const Review = mongoose.model("Review", reviewSchema);
 

@@ -107,11 +107,13 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Rate limiting for all API routes
+// API Routes (auth routes have their own rate limiters)
+app.use("/api/auth", authRoutes);
+
+// Rate limiting for other API routes (excludes auth routes)
 app.use("/api/", apiLimiter);
 
-// API Routes
-app.use("/api/auth", authRoutes);
+// Other API Routes
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/wishlist", wishlistRoutes);
