@@ -65,6 +65,7 @@ import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 
 // Load environment variables
@@ -81,6 +82,13 @@ if (missingEnvVars.length > 0) {
   );
   console.error("Please create a .env file with the required variables.");
   process.exit(1);
+}
+
+// Log Razorpay configuration status (for debugging)
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  console.log("✅ Razorpay payment gateway configured");
+} else {
+  console.warn("⚠️  Razorpay keys not configured - online payments will not work");
 }
 
 // Connect to database
@@ -117,6 +125,7 @@ app.use("/api/", apiLimiter);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // Health check endpoint
 app.get("/", (req, res) => {

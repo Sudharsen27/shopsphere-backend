@@ -315,6 +315,9 @@ export const createOrder = async (req, res) => {
       taxPrice,
       shippingPrice,
       totalPrice,
+      // Set initial status based on payment method
+      status: paymentMethod === "COD" ? "pending" : "pending",
+      isPaid: paymentMethod === "COD" ? false : false, // Will be updated after payment
     });
 
     const createdOrder = await order.save();
