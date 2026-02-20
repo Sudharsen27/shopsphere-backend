@@ -1,0 +1,360 @@
+import nodemailer from "nodemailer";
+
+// Create transporter (lazy initialization)
+let transporter = null;
+
+const getTransporter = () => {
+  // Read env vars dynamically each time (in case they're updated)
+  const EMAIL_HOST = process.env.EMAIL_HOST;
+  const EMAIL_PORT = process.env.EMAIL_PORT || 587;
+  const EMAIL_USER = process.env.EMAIL_USER;
+  const EMAIL_PASS = process.env.EMAIL_PASS;
+  
+  if (!transporter) {
+    // Check if email is configured
+    if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
+      console.warn("⚠️  Email not configured. Set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in .env");
+      console.warn(`   EMAIL_HOST: ${EMAIL_HOST || "missing"}`);
+      console.warn(`   EMAIL_USER: ${EMAIL_USER || "missing"}`);
+      console.warn(`   EMAIL_PASS: ${EMAIL_PASS ? "***configured***" : "missing"}`);
+      return null;
+    }
+
+    try {
+      transporter = nodemailer.createTransport({
+        host: EMAIL_HOST,
+        port: parseInt(EMAIL_PORT),
+        secure: EMAIL_PORT == 465, // true for 465, false for other ports
+        auth: {
+          user: EMAIL_USER,
+          pass: EMAIL_PASS,
+        },
+      });
+      console.log("✅ Email transporter initialized successfully");
+    } catch (error) {
+      console.error("❌ Failed to create email transporter:", error);
+      return null;
+    }
+  }
+  return transporter;
+};
+
+// Email templates
+const emailTemplates = {
+  orderConfirmation: (order, user) => {
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const orderItemsHtml = order.orderItems
+      .map(
+        (item) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+          <img src="${item.image}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;" />
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.qty}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${item.price.toLocaleString()}</td>
+      </tr>
+    `
+      )
+      .join("");
+
+    return {
+      subject: `Order Confirmation - Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Order Confirmation</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+          <div style="background-color: #1a1a1a; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #10b981; margin: 0;">ShopSphere</h1>
+          </div>
+          
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="color: #1a1a1a; margin-top: 0;">Thank you for your order!</h2>
+            <p>Hi ${user.name},</p>
+            <p>We've received your order and it's being processed. Here are the details:</p>
+            
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1a1a1a;">Order Details</h3>
+              <p><strong>Order ID:</strong> #${order._id.toString().slice(-8).toUpperCase()}</p>
+              <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString("en-IN", { 
+                year: "numeric", 
+                month: "long", 
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+              })}</p>
+              <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
+              <p><strong>Status:</strong> <span style="color: #f59e0b; font-weight: bold;">${order.status || "Pending"}</span></p>
+            </div>
+            
+            <h3 style="color: #1a1a1a;">Order Items</h3>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <thead>
+                <tr style="background-color: #f9fafb;">
+                  <th style="padding: 10px; text-align: left; border-bottom: 2px solid #eee;">Image</th>
+                  <th style="padding: 10px; text-align: left; border-bottom: 2px solid #eee;">Product</th>
+                  <th style="padding: 10px; text-align: center; border-bottom: 2px solid #eee;">Quantity</th>
+                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #eee;">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${orderItemsHtml}
+              </tbody>
+            </table>
+            
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0;">Subtotal:</td>
+                  <td style="text-align: right; padding: 5px 0;">₹${order.itemsPrice.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0;">Tax:</td>
+                  <td style="text-align: right; padding: 5px 0;">₹${order.taxPrice.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0;">Shipping:</td>
+                  <td style="text-align: right; padding: 5px 0;">₹${order.shippingPrice.toLocaleString()}</td>
+                </tr>
+                <tr style="border-top: 2px solid #1a1a1a; font-weight: bold; font-size: 1.1em;">
+                  <td style="padding: 10px 0;">Total:</td>
+                  <td style="text-align: right; padding: 10px 0; color: #10b981;">₹${order.totalPrice.toLocaleString()}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1a1a1a;">Shipping Address</h3>
+              <p style="margin: 5px 0;">${order.shippingAddress.address}</p>
+              <p style="margin: 5px 0;">${order.shippingAddress.city}, ${order.shippingAddress.postalCode}</p>
+              <p style="margin: 5px 0;">${order.shippingAddress.country}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Order Details</a>
+            </div>
+            
+            <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
+              If you have any questions, please contact our support team.
+            </p>
+            
+            <p style="color: #666; font-size: 0.9em;">
+              Best regards,<br>
+              The ShopSphere Team
+            </p>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+  },
+
+  paymentConfirmation: (order, user) => {
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    return {
+      subject: `Payment Confirmed - Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Payment Confirmed</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+          <div style="background-color: #1a1a1a; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #10b981; margin: 0;">ShopSphere</h1>
+          </div>
+          
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="color: #10b981; margin-top: 0;">✓ Payment Confirmed!</h2>
+            <p>Hi ${user.name},</p>
+            <p>Great news! Your payment for Order #${order._id.toString().slice(-8).toUpperCase()} has been successfully processed.</p>
+            
+            <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0;"><strong>Payment Amount:</strong> ₹${order.totalPrice.toLocaleString()}</p>
+              <p style="margin: 5px 0 0 0;"><strong>Payment Date:</strong> ${new Date(order.paidAt).toLocaleDateString("en-IN", { 
+                year: "numeric", 
+                month: "long", 
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+              })}</p>
+            </div>
+            
+            <p>Your order is now being processed and will be shipped soon. You'll receive another email when your order ships.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track Your Order</a>
+            </div>
+            
+            <p style="color: #666; font-size: 0.9em;">
+              Best regards,<br>
+              The ShopSphere Team
+            </p>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+  },
+
+  orderShipped: (order, user) => {
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    return {
+      subject: `Your Order Has Shipped - Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Order Shipped</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+          <div style="background-color: #1a1a1a; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #10b981; margin: 0;">ShopSphere</h1>
+          </div>
+          
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="color: #3b82f6; margin-top: 0;">🚚 Your Order Has Shipped!</h2>
+            <p>Hi ${user.name},</p>
+            <p>Your order #${order._id.toString().slice(-8).toUpperCase()} has been shipped and is on its way to you!</p>
+            
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0;"><strong>Order Status:</strong> <span style="color: #3b82f6; font-weight: bold;">Shipped</span></p>
+              <p style="margin: 5px 0 0 0;"><strong>Expected Delivery:</strong> 3-5 business days</p>
+            </div>
+            
+            <p>You can track your order using the link below. We'll notify you once your order is delivered.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track Your Order</a>
+            </div>
+            
+            <p style="color: #666; font-size: 0.9em;">
+              Best regards,<br>
+              The ShopSphere Team
+            </p>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+  },
+
+  orderDelivered: (order, user) => {
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    return {
+      subject: `Your Order Has Been Delivered - Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Order Delivered</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+          <div style="background-color: #1a1a1a; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #10b981; margin: 0;">ShopSphere</h1>
+          </div>
+          
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="color: #10b981; margin-top: 0;">🎉 Your Order Has Been Delivered!</h2>
+            <p>Hi ${user.name},</p>
+            <p>Great news! Your order #${order._id.toString().slice(-8).toUpperCase()} has been successfully delivered.</p>
+            
+            <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0;"><strong>Delivery Date:</strong> ${new Date(order.deliveredAt).toLocaleDateString("en-IN", { 
+                year: "numeric", 
+                month: "long", 
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+              })}</p>
+            </div>
+            
+            <p>We hope you love your purchase! If you have any questions or concerns, please don't hesitate to contact us.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 10px;">View Order</a>
+              <a href="${FRONTEND_URL}" style="display: inline-block; background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Shop Again</a>
+            </div>
+            
+            <p style="color: #666; font-size: 0.9em;">
+              Thank you for shopping with ShopSphere!<br>
+              The ShopSphere Team
+            </p>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+  },
+};
+
+// Send email function
+export const sendEmail = async (to, templateName, data) => {
+  try {
+    const transporter = getTransporter();
+    
+    if (!transporter) {
+      console.warn("⚠️  Email not configured. Skipping email send.");
+      return { success: false, error: "Email not configured" };
+    }
+
+    const template = emailTemplates[templateName];
+    if (!template) {
+      console.error(`Email template "${templateName}" not found`);
+      return { success: false, error: "Template not found" };
+    }
+
+    const emailContent = template(data.order, data.user);
+    const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER || "noreply@shopsphere.com";
+
+    const mailOptions = {
+      from: `"ShopSphere" <${EMAIL_FROM}>`,
+      to: to,
+      subject: emailContent.subject,
+      html: emailContent.html,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent successfully to ${to}:`, info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending email:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Convenience functions
+export const sendOrderConfirmationEmail = async (order, user) => {
+  return await sendEmail(user.email, "orderConfirmation", { order, user });
+};
+
+export const sendPaymentConfirmationEmail = async (order, user) => {
+  return await sendEmail(user.email, "paymentConfirmation", { order, user });
+};
+
+export const sendOrderShippedEmail = async (order, user) => {
+  return await sendEmail(user.email, "orderShipped", { order, user });
+};
+
+export const sendOrderDeliveredEmail = async (order, user) => {
+  return await sendEmail(user.email, "orderDelivered", { order, user });
+};
+
+export default {
+  sendEmail,
+  sendOrderConfirmationEmail,
+  sendPaymentConfirmationEmail,
+  sendOrderShippedEmail,
+  sendOrderDeliveredEmail,
+};

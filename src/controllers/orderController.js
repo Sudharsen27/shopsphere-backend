@@ -249,6 +249,8 @@
 
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import User from "../models/User.js";
+import { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderShippedEmail } from "../utils/emailService.js";
 
 // ==================================================
 // @desc    Create new order
@@ -321,6 +323,16 @@ export const createOrder = async (req, res) => {
     });
 
     const createdOrder = await order.save();
+    
+    // Populate user for email
+    await createdOrder.populate("user", "name email");
+    
+    // Send order confirmation email (non-blocking)
+    sendOrderConfirmationEmail(createdOrder, createdOrder.user).catch((err) => {
+      console.error("Failed to send order confirmation email:", err);
+      // Don't fail the request if email fails
+    });
+    
     res.status(201).json(createdOrder);
   } catch (error) {
     console.error("Create order error:", error);
@@ -441,13 +453,65 @@ export const getOrderById = async (req, res) => {
 };
 
 // ==================================================
+// @desc    Update order status (Admin)
+// @route   PUT /api/orders/:id/status
+// @access  Admin
+// ==================================================
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ["pending", "processing", "shipped", "delivered", "cancelled"];
+
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    const order = await Order.findById(req.params.id).populate("user", "name email");
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.status = status;
+
+    // Set timestamps based on status
+    if (status === "delivered" && !order.isDelivered) {
+      order.isDelivered = true;
+      order.deliveredAt = Date.now();
+    }
+
+    const updatedOrder = await order.save();
+
+    // Send email notifications based on status (non-blocking)
+    if (updatedOrder.user) {
+      if (status === "shipped") {
+        sendOrderShippedEmail(updatedOrder, updatedOrder.user).catch((err) => {
+          console.error("Failed to send shipped email:", err);
+        });
+      } else if (status === "delivered") {
+        sendOrderDeliveredEmail(updatedOrder, updatedOrder.user).catch((err) => {
+          console.error("Failed to send delivery email:", err);
+        });
+      }
+    }
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error("Update order status error:", error);
+    res.status(500).json({ message: "Failed to update order status" });
+  }
+};
+
+// ==================================================
 // @desc    Mark order as delivered
 // @route   PUT /api/orders/:id/deliver
 // @access  Admin
 // ==================================================
 export const markOrderAsDelivered = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("user", "name email");
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -458,6 +522,15 @@ export const markOrderAsDelivered = async (req, res) => {
     order.status = "delivered";
 
     const updatedOrder = await order.save();
+    
+    // Send delivery confirmation email (non-blocking)
+    if (updatedOrder.user) {
+      sendOrderDeliveredEmail(updatedOrder, updatedOrder.user).catch((err) => {
+        console.error("Failed to send delivery confirmation email:", err);
+        // Don't fail the request if email fails
+      });
+    }
+    
     res.json(updatedOrder);
   } catch (error) {
     console.error("Mark delivered error:", error);

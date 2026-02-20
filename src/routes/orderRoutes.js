@@ -72,6 +72,7 @@ import {
   getOrderById,
   markOrderAsPaid,
   markOrderAsDelivered,
+  updateOrderStatus,
 } from "../controllers/orderController.js";
 
 import protect from "../middleware/authMiddleware.js";
@@ -100,6 +101,9 @@ router.get("/:id", protect, getOrderById);
 
 // 🔒 Mark order as paid (User)
 router.put("/:id/pay", protect, markOrderAsPaid);
+
+// 🔐 Update order status (Admin only) - for shipped, delivered, cancelled
+router.put("/:id/status", protect, adminOnly, updateOrderStatus);
 
 // 🔐 Mark order as delivered (Admin only)
 router.put("/:id/deliver", protect, adminOnly, markOrderAsDelivered);
