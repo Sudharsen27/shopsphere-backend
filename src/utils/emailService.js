@@ -1,35 +1,51 @@
+import dns from "dns";
 import nodemailer from "nodemailer";
+
+// Prefer IPv4 for SMTP (avoids ENETUNREACH on cloud hosts like Render where IPv6 to Gmail may fail)
+dns.setDefaultResultOrder("ipv4first");
 
 // Create transporter (lazy initialization)
 let transporter = null;
 
 const getTransporter = () => {
-  // Read env vars dynamically each time (in case they're updated)
+  // Production: Brevo SMTP (works on Render; free tier available)
+  const BREVO_EMAIL = process.env.BREVO_EMAIL;
+  const BREVO_SMTP_KEY = process.env.BREVO_SMTP_KEY;
   const EMAIL_HOST = process.env.EMAIL_HOST;
   const EMAIL_PORT = process.env.EMAIL_PORT || 587;
   const EMAIL_USER = process.env.EMAIL_USER;
   const EMAIL_PASS = process.env.EMAIL_PASS;
-  
+
   if (!transporter) {
-    // Check if email is configured
-    if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
-      console.warn("⚠️  Email not configured. Set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in .env");
-      console.warn(`   EMAIL_HOST: ${EMAIL_HOST || "missing"}`);
-      console.warn(`   EMAIL_USER: ${EMAIL_USER || "missing"}`);
-      console.warn(`   EMAIL_PASS: ${EMAIL_PASS ? "***configured***" : "missing"}`);
+    let config;
+
+    if (BREVO_EMAIL && BREVO_SMTP_KEY) {
+      config = {
+        host: "smtp.brevo.com",
+        port: 587,
+        secure: false,
+        auth: { user: BREVO_EMAIL, pass: BREVO_SMTP_KEY },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+      };
+    } else if (EMAIL_HOST && EMAIL_USER && EMAIL_PASS) {
+      config = {
+        host: EMAIL_HOST,
+        port: parseInt(EMAIL_PORT),
+        secure: EMAIL_PORT == 465,
+        auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
+      };
+    } else {
+      console.warn("⚠️  Email not configured.");
+      console.warn("   On Render (production): set BREVO_EMAIL and BREVO_SMTP_KEY in Environment.");
+      console.warn("   Local: set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in .env");
       return null;
     }
 
     try {
-      transporter = nodemailer.createTransport({
-        host: EMAIL_HOST,
-        port: parseInt(EMAIL_PORT),
-        secure: EMAIL_PORT == 465, // true for 465, false for other ports
-        auth: {
-          user: EMAIL_USER,
-          pass: EMAIL_PASS,
-        },
-      });
+      transporter = nodemailer.createTransport(config);
       console.log("✅ Email transporter initialized successfully");
     } catch (error) {
       console.error("❌ Failed to create email transporter:", error);
@@ -299,11 +315,11 @@ const emailTemplates = {
   },
 };
 
-// Send email function
-export const sendEmail = async (to, templateName, data) => {
+// Send email function (optional bcc for client copy)
+export const sendEmail = async (to, templateName, data, options = {}) => {
   try {
     const transporter = getTransporter();
-    
+
     if (!transporter) {
       console.warn("⚠️  Email not configured. Skipping email send.");
       return { success: false, error: "Email not configured" };
@@ -316,7 +332,7 @@ export const sendEmail = async (to, templateName, data) => {
     }
 
     const emailContent = template(data.order, data.user);
-    const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER || "noreply@shopsphere.com";
+    const EMAIL_FROM = process.env.EMAIL_FROM || process.env.BREVO_EMAIL || process.env.EMAIL_USER || "noreply@shopsphere.com";
 
     const mailOptions = {
       from: `"ShopSphere" <${EMAIL_FROM}>`,
@@ -324,9 +340,11 @@ export const sendEmail = async (to, templateName, data) => {
       subject: emailContent.subject,
       html: emailContent.html,
     };
+    if (options.bcc) mailOptions.bcc = options.bcc;
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Email sent successfully to ${to}:`, info.messageId);
+    if (options.bcc) console.log(`   📋 Copy sent to client: ${options.bcc}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("❌ Error sending email:", error);
@@ -334,9 +352,21 @@ export const sendEmail = async (to, templateName, data) => {
   }
 };
 
+// Client email gets a copy of every order (set CLIENT_EMAIL in Render/local .env)
+const getClientEmail = () => {
+  const email = process.env.CLIENT_EMAIL || process.env.NOTIFY_EMAIL || "";
+  return email.trim() || null;
+};
+
 // Convenience functions
 export const sendOrderConfirmationEmail = async (order, user) => {
-  return await sendEmail(user.email, "orderConfirmation", { order, user });
+  const to = user?.email;
+  if (!to) {
+    console.error("❌ Order confirmation skipped: no customer email (order user missing email)");
+    return { success: false, error: "No customer email" };
+  }
+  const clientEmail = getClientEmail();
+  return await sendEmail(to, "orderConfirmation", { order, user }, clientEmail ? { bcc: clientEmail } : {});
 };
 
 export const sendPaymentConfirmationEmail = async (order, user) => {

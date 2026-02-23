@@ -92,21 +92,25 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
 }
 
 // Log Email configuration status (for debugging)
-if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-  console.log("✅ Email notifications configured");
+if (process.env.BREVO_EMAIL && process.env.BREVO_SMTP_KEY) {
+  console.log("✅ Email notifications configured (Brevo)");
+  console.log(`   From: ${process.env.EMAIL_FROM || process.env.BREVO_EMAIL}`);
+} else if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+  console.log("✅ Email notifications configured (SMTP/Gmail)");
   console.log(`   Email: ${process.env.EMAIL_USER}`);
   console.log(`   Host: ${process.env.EMAIL_HOST}`);
 } else {
   console.warn("⚠️  Email not configured - order emails will not be sent");
-  console.warn(`   EMAIL_HOST: ${process.env.EMAIL_HOST || "missing"}`);
-  console.warn(`   EMAIL_USER: ${process.env.EMAIL_USER || "missing"}`);
-  console.warn(`   EMAIL_PASS: ${process.env.EMAIL_PASS ? "***" : "missing"}`);
+  console.warn("   Production (Render): set BREVO_EMAIL + BREVO_SMTP_KEY. Local: set EMAIL_HOST, EMAIL_USER, EMAIL_PASS.");
 }
 
 // Connect to database
 connectDB();
 
 const app = express();
+
+// Trust proxy (required for Render/reverse proxies - fixes rate limiter X-Forwarded-For)
+app.set("trust proxy", true);
 
 // Security middleware
 app.use(helmet());

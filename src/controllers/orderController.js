@@ -327,11 +327,19 @@ export const createOrder = async (req, res) => {
     // Populate user for email
     await createdOrder.populate("user", "name email");
     
-    // Send order confirmation email (non-blocking)
-    sendOrderConfirmationEmail(createdOrder, createdOrder.user).catch((err) => {
-      console.error("Failed to send order confirmation email:", err);
-      // Don't fail the request if email fails
-    });
+    // Send order confirmation email to customer (and BCC to client if CLIENT_EMAIL set)
+    sendOrderConfirmationEmail(createdOrder, createdOrder.user)
+      .then((result) => {
+        if (result?.success) {
+          console.log(`✅ Order confirmation email sent for order ${createdOrder._id} to ${createdOrder.user?.email}`);
+        } else {
+          console.warn(`⚠️ Order confirmation email skipped or failed:`, result?.error || "unknown");
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Failed to send order confirmation email:", err?.message || err);
+        // Don't fail the request if email fails
+      });
     
     res.status(201).json(createdOrder);
   } catch (error) {
