@@ -250,6 +250,7 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
+import Coupon from "../models/Coupon.js";
 import { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderShippedEmail } from "../utils/emailService.js";
 
 // ==================================================
@@ -266,7 +267,8 @@ export const createOrder = async (req, res) => {
       itemsPrice,
       taxPrice,
       shippingPrice,
-      totalPrice,
+      totalPrice: totalPriceFromClient,
+      couponCode: couponCodeFromClient,
     } = req.body;
 
     // 1️⃣ Validate order items
@@ -307,19 +309,52 @@ export const createOrder = async (req, res) => {
       await product.save();
     }
 
+    let discountAmount = 0;
+    let couponCodeToSave = null;
+    const taxPriceNum = Number(taxPrice) || 0;
+    const shippingPriceNum = Number(shippingPrice) || 0;
+    const itemsPriceNum = Number(itemsPrice) || 0;
+    let totalPrice = itemsPriceNum + taxPriceNum + shippingPriceNum;
+
+    if (couponCodeFromClient && couponCodeFromClient.trim()) {
+      const coupon = await Coupon.findOne({ code: couponCodeFromClient.trim().toUpperCase() });
+      if (coupon && coupon.isActive) {
+        const now = new Date();
+        const notExpired = !coupon.expiresAt || new Date(coupon.expiresAt) >= now;
+        const underLimit = coupon.usageLimit == null || coupon.usedCount < coupon.usageLimit;
+        const meetsMin = (coupon.minOrderAmount || 0) <= itemsPriceNum;
+        if (notExpired && underLimit && meetsMin) {
+          if (coupon.type === "percentage") {
+            discountAmount = Math.min((itemsPriceNum * coupon.value) / 100, itemsPriceNum);
+          } else {
+            discountAmount = Math.min(coupon.value, itemsPriceNum);
+          }
+          discountAmount = Math.round(discountAmount * 100) / 100;
+          totalPrice = Math.round((totalPrice - discountAmount) * 100) / 100;
+          couponCodeToSave = coupon.code;
+          coupon.usedCount += 1;
+          await coupon.save();
+        }
+      }
+    }
+    if (totalPriceFromClient != null && !couponCodeToSave) {
+      totalPrice = Number(totalPriceFromClient) || totalPrice;
+    }
+
     // 4️⃣ Create order
     const order = new Order({
       user: req.user._id,
       orderItems,
       shippingAddress,
       paymentMethod,
-      itemsPrice,
-      taxPrice,
-      shippingPrice,
+      itemsPrice: itemsPriceNum,
+      taxPrice: taxPriceNum,
+      shippingPrice: shippingPriceNum,
       totalPrice,
-      // Set initial status based on payment method
+      couponCode: couponCodeToSave,
+      discountAmount,
       status: paymentMethod === "COD" ? "pending" : "pending",
-      isPaid: paymentMethod === "COD" ? false : false, // Will be updated after payment
+      isPaid: false,
     });
 
     const createdOrder = await order.save();

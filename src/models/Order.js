@@ -77,6 +77,8 @@ const orderSchema = new mongoose.Schema(
     razorpayOrderId: {
       type: String,
     },
+    couponCode: { type: String },
+    discountAmount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

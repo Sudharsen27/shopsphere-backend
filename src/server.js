@@ -66,6 +66,7 @@ import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import couponRoutes from "./routes/couponRoutes.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 
 // Load environment variables
@@ -144,6 +145,7 @@ app.use("/api/", apiLimiter);
 // Other API Routes
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/coupons", couponRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/payments", paymentRoutes);
 
