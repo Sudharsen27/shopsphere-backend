@@ -1,9 +1,14 @@
 import rateLimit from "express-rate-limit";
 
+// Disable trustProxy validation so we don't crash if Express trust proxy is true (e.g. old deploy).
+// Prefer setting app.set("trust proxy", 1) in server.js; this just avoids ERR_ERL_PERMISSIVE_TRUST_PROXY.
+const validate = { trustProxy: false };
+
 // Rate limiter for auth routes (login/register)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Limit each IP to 10 requests per windowMs
+  validate,
   message: {
     success: false,
     message: "Too many login attempts, please try again after 15 minutes",
@@ -17,6 +22,7 @@ export const authLimiter = rateLimit({
 export const verifyLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 20, // Limit each IP to 20 requests per minute
+  validate,
   message: {
     success: false,
     message: "Too many verification requests, please try again later",
@@ -30,6 +36,7 @@ export const verifyLimiter = rateLimit({
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 200, // Limit each IP to 200 requests per windowMs
+  validate,
   message: {
     success: false,
     message: "Too many requests, please try again later",

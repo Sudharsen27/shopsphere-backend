@@ -4,17 +4,51 @@ import nodemailer from "nodemailer";
 // Prefer IPv4 for SMTP (avoids ENETUNREACH on cloud hosts like Render where IPv6 to Gmail may fail)
 dns.setDefaultResultOrder("ipv4first");
 
-// Create transporter (lazy initialization)
+// Brevo HTTP API (use when SMTP DNS fails on Render - e.g. ENOTFOUND smtp.brevo.com)
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+
+const sendViaBrevoApi = async (to, subject, html, fromEmail, fromName = "ShopSphere", bcc = null) => {
+  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY;
+  if (!apiKey) return { success: false, error: "BREVO_API_KEY or BREVO_SMTP_KEY not set" };
+
+  const body = {
+    sender: { email: fromEmail, name: fromName },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+  if (bcc) body.bcc = [{ email: bcc }];
+
+  const res = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Brevo API ${res.status}: ${errText}`);
+  }
+  const data = await res.json();
+  return { success: true, messageId: data.messageId };
+};
+
+// Create transporter (lazy initialization) - only used when not using Brevo API
 let transporter = null;
 
 const getTransporter = () => {
-  // Production: Brevo SMTP (works on Render; free tier available)
   const BREVO_EMAIL = process.env.BREVO_EMAIL;
   const BREVO_SMTP_KEY = process.env.BREVO_SMTP_KEY;
   const EMAIL_HOST = process.env.EMAIL_HOST;
   const EMAIL_PORT = process.env.EMAIL_PORT || 587;
   const EMAIL_USER = process.env.EMAIL_USER;
   const EMAIL_PASS = process.env.EMAIL_PASS;
+
+  // When Brevo API key is set, sending is done via HTTP in sendEmail(); no SMTP transporter.
+  if (process.env.BREVO_API_KEY) return null;
 
   if (!transporter) {
     let config;
@@ -39,7 +73,7 @@ const getTransporter = () => {
       };
     } else {
       console.warn("⚠️  Email not configured.");
-      console.warn("   On Render (production): set BREVO_EMAIL and BREVO_SMTP_KEY in Environment.");
+      console.warn("   On Render (production): set BREVO_API_KEY (recommended) or BREVO_EMAIL + BREVO_SMTP_KEY.");
       console.warn("   Local: set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in .env");
       return null;
     }
@@ -318,13 +352,6 @@ const emailTemplates = {
 // Send email function (optional bcc for client copy)
 export const sendEmail = async (to, templateName, data, options = {}) => {
   try {
-    const transporter = getTransporter();
-
-    if (!transporter) {
-      console.warn("⚠️  Email not configured. Skipping email send.");
-      return { success: false, error: "Email not configured" };
-    }
-
     const template = emailTemplates[templateName];
     if (!template) {
       console.error(`Email template "${templateName}" not found`);
@@ -333,6 +360,29 @@ export const sendEmail = async (to, templateName, data, options = {}) => {
 
     const emailContent = template(data.order, data.user);
     const EMAIL_FROM = process.env.EMAIL_FROM || process.env.BREVO_EMAIL || process.env.EMAIL_USER || "noreply@shopsphere.com";
+
+    // Brevo HTTP API (avoids ENOTFOUND smtp.brevo.com on Render)
+    if (process.env.BREVO_API_KEY) {
+      const result = await sendViaBrevoApi(
+        to,
+        emailContent.subject,
+        emailContent.html,
+        EMAIL_FROM,
+        "ShopSphere",
+        options.bcc || undefined
+      );
+      if (result.success) {
+        console.log(`✅ Email sent via Brevo API to ${to}`);
+        if (options.bcc) console.log(`   📋 Copy sent to client: ${options.bcc}`);
+      }
+      return result;
+    }
+
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.warn("⚠️  Email not configured. Skipping email send.");
+      return { success: false, error: "Email not configured" };
+    }
 
     const mailOptions = {
       from: `"ShopSphere" <${EMAIL_FROM}>`,

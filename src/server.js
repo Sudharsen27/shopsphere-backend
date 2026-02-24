@@ -92,8 +92,11 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
 }
 
 // Log Email configuration status (for debugging)
-if (process.env.BREVO_EMAIL && process.env.BREVO_SMTP_KEY) {
-  console.log("✅ Email notifications configured (Brevo)");
+if (process.env.BREVO_API_KEY) {
+  console.log("✅ Email notifications configured (Brevo API - recommended on Render)");
+  console.log(`   From: ${process.env.EMAIL_FROM || process.env.BREVO_EMAIL || "set BREVO_EMAIL or EMAIL_FROM"}`);
+} else if (process.env.BREVO_EMAIL && process.env.BREVO_SMTP_KEY) {
+  console.log("✅ Email notifications configured (Brevo SMTP)");
   console.log(`   From: ${process.env.EMAIL_FROM || process.env.BREVO_EMAIL}`);
 } else if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
   console.log("✅ Email notifications configured (SMTP/Gmail)");
@@ -101,7 +104,7 @@ if (process.env.BREVO_EMAIL && process.env.BREVO_SMTP_KEY) {
   console.log(`   Host: ${process.env.EMAIL_HOST}`);
 } else {
   console.warn("⚠️  Email not configured - order emails will not be sent");
-  console.warn("   Production (Render): set BREVO_EMAIL + BREVO_SMTP_KEY. Local: set EMAIL_HOST, EMAIL_USER, EMAIL_PASS.");
+  console.warn("   Production (Render): set BREVO_API_KEY (recommended) or BREVO_EMAIL + BREVO_SMTP_KEY. Local: set EMAIL_HOST, EMAIL_USER, EMAIL_PASS.");
 }
 
 // Connect to database
@@ -109,8 +112,9 @@ connectDB();
 
 const app = express();
 
-// Trust proxy (required for Render/reverse proxies - fixes rate limiter X-Forwarded-For)
-app.set("trust proxy", true);
+// Trust exactly one proxy (Render). Using 1 instead of true avoids ERR_ERL_PERMISSIVE_TRUST_PROXY
+// while still reading X-Forwarded-For for rate limiting. See express-rate-limit proxy docs.
+app.set("trust proxy", 1);
 
 // Security middleware
 app.use(helmet());
