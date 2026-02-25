@@ -34,6 +34,10 @@ import {
   verifyToken,
   updateProfile,
   changePassword,
+  addAddress,
+  updateAddress,
+  deleteAddress,
+  setDefaultAddress,
 } from "../controllers/authController.js";
 import { getUserProfile } from "../controllers/userController.js";
 
@@ -48,5 +52,11 @@ router.get("/verify", verifyLimiter, protect, verifyToken);
 router.get("/profile", protect, getUserProfile);
 router.put("/profile", protect, updateProfile);
 router.put("/password", protect, changePassword);
+
+// Saved addresses
+router.post("/addresses", protect, addAddress);
+router.put("/addresses/:id", protect, updateAddress);
+router.delete("/addresses/:id", protect, deleteAddress);
+router.patch("/addresses/:id/default", protect, setDefaultAddress);
 
 export default router;

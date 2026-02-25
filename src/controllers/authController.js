@@ -301,3 +301,90 @@ export const changePassword = async (req, res) => {
     );
   }
 };
+
+// ========== SAVED ADDRESSES ==========
+
+export const addAddress = async (req, res) => {
+  try {
+    const { address, city, postalCode, country, isDefault } = req.body;
+    if (!address?.trim() || !city?.trim() || !postalCode?.trim() || !country?.trim()) {
+      return sendErrorResponse(res, 400, "Address, city, postal code and country are required");
+    }
+    const user = await User.findById(req.user._id);
+    if (!user) return sendErrorResponse(res, 404, "User not found");
+    const newAddr = {
+      address: address.trim(),
+      city: city.trim(),
+      postalCode: postalCode.trim(),
+      country: country.trim(),
+      isDefault: !!isDefault,
+    };
+    if (newAddr.isDefault) {
+      user.addresses.forEach((a) => { a.isDefault = false; });
+    }
+    user.addresses.push(newAddr);
+    await user.save();
+    const added = user.addresses[user.addresses.length - 1];
+    return sendSuccessResponse(res, 201, "Address added", {
+      address: added,
+      addresses: user.addresses,
+    });
+  } catch (error) {
+    console.error("Add address error:", error);
+    return sendErrorResponse(res, 500, "Failed to add address");
+  }
+};
+
+export const updateAddress = async (req, res) => {
+  try {
+    const { address, city, postalCode, country, isDefault } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return sendErrorResponse(res, 404, "User not found");
+    const addr = user.addresses.id(req.params.id);
+    if (!addr) return sendErrorResponse(res, 404, "Address not found");
+    if (address !== undefined) addr.address = address.trim();
+    if (city !== undefined) addr.city = city.trim();
+    if (postalCode !== undefined) addr.postalCode = postalCode.trim();
+    if (country !== undefined) addr.country = country.trim();
+    if (isDefault === true) {
+      user.addresses.forEach((a) => { a.isDefault = false; });
+      addr.isDefault = true;
+    }
+    await user.save();
+    return sendSuccessResponse(res, 200, "Address updated", { addresses: user.addresses });
+  } catch (error) {
+    console.error("Update address error:", error);
+    return sendErrorResponse(res, 500, "Failed to update address");
+  }
+};
+
+export const deleteAddress = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return sendErrorResponse(res, 404, "User not found");
+    const addr = user.addresses.id(req.params.id);
+    if (!addr) return sendErrorResponse(res, 404, "Address not found");
+    addr.deleteOne();
+    await user.save();
+    return sendSuccessResponse(res, 200, "Address deleted", { addresses: user.addresses });
+  } catch (error) {
+    console.error("Delete address error:", error);
+    return sendErrorResponse(res, 500, "Failed to delete address");
+  }
+};
+
+export const setDefaultAddress = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return sendErrorResponse(res, 404, "User not found");
+    const addr = user.addresses.id(req.params.id);
+    if (!addr) return sendErrorResponse(res, 404, "Address not found");
+    user.addresses.forEach((a) => { a.isDefault = false; });
+    addr.isDefault = true;
+    await user.save();
+    return sendSuccessResponse(res, 200, "Default address updated", { addresses: user.addresses });
+  } catch (error) {
+    console.error("Set default address error:", error);
+    return sendErrorResponse(res, 500, "Failed to set default address");
+  }
+};
