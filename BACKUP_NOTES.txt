@@ -1,0 +1,82 @@
+============================================
+  SHOPSPHERE - HOW TO BACKUP & CHECK YOUR DB
+============================================
+
+WILL THIS RESTORE EVERYTHING IF I DELETE MONGODB/CLUSTER?
+---------------------------------------------------------
+YES. The backup saves all your data to JSON files on your PC (and
+wherever you copy the backup folder). Even if you delete your MongoDB
+database or the entire Atlas cluster later, those backup files still
+have everything. When you create a NEW database/cluster, put the new
+MONGO_URI in .env and run the restore command (see section 4 below).
+All your data will be loaded into the new DB.
+
+============================================
+
+WHERE TO RUN COMMANDS
+--------------------
+Open terminal/command prompt and go to the backend folder:
+  cd "E:\company\Learning\D2C e-commerce app\shopsphere-backend"
+
+
+1) CREATE A BACKUP
+-----------------
+  npm run backup
+
+  OR
+
+  node src/scripts/backupDb.js
+
+  This creates a folder like:  backups/2025-02-17_14-30-00
+
+
+2) HOW TO CHECK WHETHER ALL DATA IS BACKED UP
+---------------------------------------------
+  After backup, open the backup folder (e.g. backups/2025-02-17_14-30-00).
+
+  Open the file:  BACKUP_SUMMARY.txt  (in Notepad or any text editor)
+
+  You will see:
+  - Backup date and time
+  - Database name
+  - A list of every collection (e.g. users, products, orders) and how many
+    documents were saved
+  - Total document count
+
+  To verify:
+  - Each line shows something like:  users: 5 documents  --> file: users.json
+  - Make sure every collection you care about is listed.
+  - Open each .json file in Notepad if you want; you should see your data
+    in JSON format. If the file is empty or missing, that collection
+    was not backed up correctly.
+
+
+3) WHERE TO KEEP BACKUPS
+------------------------
+  Copy the whole backup folder (e.g. 2025-02-17_14-30-00) to:
+  - Google Drive / OneDrive / Dropbox
+  - USB drive
+  - Another computer
+
+  So if MongoDB is deleted or you lose the server, you still have the files.
+
+
+4) HOW TO RESTORE (when DB is lost or new machine)
+--------------------------------------------------
+  From shopsphere-backend folder:
+
+  node src/scripts/restoreDb.js backups/2025-02-17_14-30-00
+
+  Replace  2025-02-17_14-30-00  with your actual backup folder name.
+
+  This loads all the JSON files from that folder back into MongoDB.
+
+
+5) QUICK CHECKLIST
+------------------
+  [ ] Run  npm run backup  regularly (e.g. weekly)
+  [ ] Open  BACKUP_SUMMARY.txt  and confirm all collections and counts look right
+  [ ] Copy the backup folder to cloud or USB
+  [ ] Keep this BACKUP_NOTES.txt file so you remember the restore command
+
+============================================

@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/seedProducts.js",
-    "add-test-product": "node src/scripts/addTestProduct.js"
+    "add-test-product": "node src/scripts/addTestProduct.js",
+    "backup": "node src/scripts/backupDb.js"
   },
   "keywords": [],
   "author": "",
