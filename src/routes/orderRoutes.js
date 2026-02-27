@@ -73,6 +73,7 @@ import {
   markOrderAsPaid,
   markOrderAsDelivered,
   updateOrderStatus,
+  cancelOrder,
 } from "../controllers/orderController.js";
 
 import protect from "../middleware/authMiddleware.js";
@@ -98,6 +99,9 @@ router.get("/", protect, adminOnly, getAllOrders);
 // 🔒 Get single order by ID (User can see their own, Admin can see all)
 // This must be last to avoid matching /myorders or /
 router.get("/:id", protect, getOrderById);
+
+// 🔒 Cancel order (User only, pending/processing)
+router.put("/:id/cancel", protect, cancelOrder);
 
 // 🔒 Mark order as paid (User)
 router.put("/:id/pay", protect, markOrderAsPaid);

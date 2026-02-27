@@ -251,7 +251,19 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import Coupon from "../models/Coupon.js";
-import { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderShippedEmail } from "../utils/emailService.js";
+import { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderShippedEmail, sendOrderCancelledEmail } from "../utils/emailService.js";
+
+// Restore product stock when an order is cancelled (user or admin)
+async function restoreStockForOrder(order) {
+  for (const item of order.orderItems || []) {
+    if (!item.product || item.qty == null) continue;
+    const product = await Product.findById(item.product);
+    if (product) {
+      product.countInStock += Number(item.qty);
+      await product.save();
+    }
+  }
+}
 
 // ==================================================
 // @desc    Create new order
@@ -462,6 +474,40 @@ export const markOrderAsPaid = async (req, res) => {
 // ==================================================
 // @desc    Get single order by ID
 // @route   GET /api/orders/:id
+// ==================================================
+// @desc    Cancel order (User only, pending or processing)
+// @route   PUT /api/orders/:id/cancel
+// @access  Private
+// ==================================================
+export const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate("user", "name email");
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (order.user._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to cancel this order" });
+    }
+    const status = order.status || (order.isDelivered ? "delivered" : order.isPaid ? "processing" : "pending");
+    if (status !== "pending" && status !== "processing") {
+      return res.status(400).json({
+        message: "Only pending or processing orders can be cancelled",
+      });
+    }
+    order.status = "cancelled";
+    await order.save();
+    await restoreStockForOrder(order);
+    if (order.user?.email) {
+      sendOrderCancelledEmail(order, order.user).catch((err) =>
+        console.error("Failed to send order cancelled email:", err)
+      );
+    }
+    res.json(order);
+  } catch (error) {
+    console.error("Cancel order error:", error);
+    res.status(500).json({ message: "Failed to cancel order" });
+  }
+};
+
+// ==================================================
 // @access  Private (User can only see their own orders, Admin can see all)
 // ==================================================
 export const getOrderById = async (req, res) => {
@@ -525,6 +571,11 @@ export const updateOrderStatus = async (req, res) => {
       order.deliveredAt = Date.now();
     }
 
+    // When admin cancels, restore stock
+    if (status === "cancelled") {
+      await restoreStockForOrder(order);
+    }
+
     const updatedOrder = await order.save();
 
     // Send email notifications based on status (non-blocking)
@@ -536,6 +587,10 @@ export const updateOrderStatus = async (req, res) => {
       } else if (status === "delivered") {
         sendOrderDeliveredEmail(updatedOrder, updatedOrder.user).catch((err) => {
           console.error("Failed to send delivery email:", err);
+        });
+      } else if (status === "cancelled") {
+        sendOrderCancelledEmail(updatedOrder, updatedOrder.user).catch((err) => {
+          console.error("Failed to send cancelled email:", err);
         });
       }
     }

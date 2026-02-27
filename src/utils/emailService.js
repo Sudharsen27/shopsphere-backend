@@ -347,6 +347,34 @@ const emailTemplates = {
       `,
     };
   },
+
+  orderCancelled: (order, user) => {
+    return {
+      subject: `Order Cancelled - Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Order Cancelled</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+          <div style="background-color: #1a1a1a; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #10b981; margin: 0;">ShopSphere</h1>
+          </div>
+          <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h2 style="color: #1a1a1a; margin-top: 0;">Order Cancelled</h2>
+            <p>Hi ${user.name},</p>
+            <p>Your order #${order._id.toString().slice(-8).toUpperCase()} has been cancelled as requested.</p>
+            <p style="color: #666; font-size: 0.9em;">If you did not request this cancellation, please contact our support team.</p>
+            <p style="color: #666; font-size: 0.9em;">Best regards,<br>The ShopSphere Team</p>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+  },
 };
 
 // Send email function (optional bcc for client copy)
@@ -431,10 +459,15 @@ export const sendOrderDeliveredEmail = async (order, user) => {
   return await sendEmail(user.email, "orderDelivered", { order, user });
 };
 
+export const sendOrderCancelledEmail = async (order, user) => {
+  return await sendEmail(user.email, "orderCancelled", { order, user });
+};
+
 export default {
   sendEmail,
   sendOrderConfirmationEmail,
   sendPaymentConfirmationEmail,
   sendOrderShippedEmail,
   sendOrderDeliveredEmail,
+  sendOrderCancelledEmail,
 };
