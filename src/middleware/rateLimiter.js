@@ -33,9 +33,11 @@ export const verifyLimiter = rateLimit({
 });
 
 // General API rate limiter (excludes auth routes to avoid double limiting)
+// In development, use a much higher limit to avoid 429s from HMR + many product/wishlist requests
+const isDev = process.env.NODE_ENV !== "production";
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Limit each IP to 200 requests per windowMs
+  max: isDev ? 2000 : 200, // Dev: 2000; Production: 200 per 15 min per IP
   validate,
   message: {
     success: false,
@@ -45,6 +47,7 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => {
     // Skip rate limiting for all auth routes (they have their own limiters)
-    return req.path.startsWith("/api/auth");
+    if (req.path.startsWith("/api/auth")) return true;
+    return false;
   },
 });

@@ -74,6 +74,7 @@ import {
   markOrderAsDelivered,
   updateOrderStatus,
   cancelOrder,
+  trackOrderPublic,
 } from "../controllers/orderController.js";
 
 import protect from "../middleware/authMiddleware.js";
@@ -96,8 +97,10 @@ router.get("/myorders", protect, getMyOrders);
 // 🔐 Get all orders (Admin only) - must come before /:id
 router.get("/", protect, adminOnly, getAllOrders);
 
+// 🌐 Public order tracking (no auth) - must be before /:id
+router.get("/track", trackOrderPublic);
+
 // 🔒 Get single order by ID (User can see their own, Admin can see all)
-// This must be last to avoid matching /myorders or /
 router.get("/:id", protect, getOrderById);
 
 // 🔒 Cancel order (User only, pending/processing)

@@ -186,7 +186,7 @@ const emailTemplates = {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Order Details</a>
+              <a href="${FRONTEND_URL}/track?order=${order._id}&email=${encodeURIComponent(user.email)}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track your order</a>
             </div>
             
             <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
@@ -240,7 +240,7 @@ const emailTemplates = {
             <p>Your order is now being processed and will be shipped soon. You'll receive another email when your order ships.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track Your Order</a>
+              <a href="${FRONTEND_URL}/track?order=${order._id}&email=${encodeURIComponent(user.email)}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track your order</a>
             </div>
             
             <p style="color: #666; font-size: 0.9em;">
@@ -284,7 +284,7 @@ const emailTemplates = {
             <p>You can track your order using the link below. We'll notify you once your order is delivered.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track Your Order</a>
+              <a href="${FRONTEND_URL}/track?order=${order._id}&email=${encodeURIComponent(user.email)}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Track your order</a>
             </div>
             
             <p style="color: #666; font-size: 0.9em;">
@@ -333,8 +333,8 @@ const emailTemplates = {
             <p>We hope you love your purchase! If you have any questions or concerns, please don't hesitate to contact us.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${FRONTEND_URL}/orders/${order._id}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 10px;">View Order</a>
-              <a href="${FRONTEND_URL}" style="display: inline-block; background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Shop Again</a>
+              <a href="${FRONTEND_URL}/track?order=${order._id}&email=${encodeURIComponent(user.email)}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 10px;">View order</a>
+              <a href="${FRONTEND_URL}" style="display: inline-block; background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Shop again</a>
             </div>
             
             <p style="color: #666; font-size: 0.9em;">

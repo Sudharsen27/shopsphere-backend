@@ -508,6 +508,44 @@ export const cancelOrder = async (req, res) => {
 };
 
 // ==================================================
+// @desc    Public order tracking (no auth; verify email matches order)
+// @route   GET /api/orders/track?orderId=xxx&email=xxx
+// @access  Public
+// ==================================================
+export const trackOrderPublic = async (req, res) => {
+  try {
+    const { orderId, email } = req.query;
+    if (!orderId || !email || typeof email !== "string") {
+      return res.status(400).json({ message: "Order ID and email are required" });
+    }
+    const order = await Order.findById(orderId).populate("user", "email");
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    const orderEmail = order.user?.email || "";
+    if (!orderEmail || orderEmail.toLowerCase().trim() !== email.toLowerCase().trim()) {
+      return res.status(403).json({ message: "Email does not match this order" });
+    }
+    const status = order.status || (order.isDelivered ? "delivered" : order.isPaid ? "processing" : "pending");
+    const safeOrder = {
+      _id: order._id,
+      orderId: order._id.toString(),
+      status,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt || null,
+      deliveredAt: order.deliveredAt || null,
+      orderItems: (order.orderItems || []).map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+      totalPrice: order.totalPrice,
+      shippingAddress: order.shippingAddress,
+    };
+    res.json(safeOrder);
+  } catch (error) {
+    console.error("Track order error:", error);
+    res.status(500).json({ message: "Failed to load tracking info" });
+  }
+};
+
+// ==================================================
 // @access  Private (User can only see their own orders, Admin can see all)
 // ==================================================
 export const getOrderById = async (req, res) => {
