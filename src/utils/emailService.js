@@ -463,6 +463,57 @@ export const sendOrderCancelledEmail = async (order, user) => {
   return await sendEmail(user.email, "orderCancelled", { order, user });
 };
 
+// Low-stock alert to admin (products: array of { name, countInStock, price })
+export const sendLowStockAlertEmail = async (products, threshold) => {
+  const to = process.env.CLIENT_EMAIL || process.env.ADMIN_EMAIL || process.env.NOTIFY_EMAIL || "";
+  const email = to.trim();
+  if (!email) {
+    console.warn("⚠️  Low-stock alert skipped: no CLIENT_EMAIL / ADMIN_EMAIL / NOTIFY_EMAIL");
+    return { sent: false, message: "No admin email configured" };
+  }
+  const EMAIL_FROM = process.env.EMAIL_FROM || process.env.BREVO_EMAIL || process.env.EMAIL_USER || "noreply@shopsphere.com";
+  const subject = `ShopSphere: Low stock alert (${products.length} products at or below ${threshold})`;
+  const rows =
+    products.length === 0
+      ? "<tr><td colspan='3'>No products below threshold</td></tr>"
+      : products
+          .map(
+            (p) =>
+              `<tr><td style="padding:8px;border-bottom:1px solid #eee">${escapeHtml(p.name)}</td><td style="padding:8px;border-bottom:1px solid #eee">${p.countInStock}</td><td style="padding:8px;border-bottom:1px solid #eee">₹${Number(p.price).toLocaleString()}</td></tr>`
+          )
+          .join("");
+  const html = `
+    <!DOCTYPE html><html><head><meta charset="utf-8"><title>Low Stock Alert</title></head>
+    <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+      <h2 style="color:#b45309">⚠️ Low Stock Alert</h2>
+      <p>Products with stock ≤ ${threshold}:</p>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left">Product</th><th style="padding:8px">Stock</th><th style="padding:8px">Price</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="color:#666;font-size:12px">ShopSphere Admin</p>
+    </body></html>
+  `;
+  function escapeHtml(s) {
+    if (!s) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  try {
+    if (process.env.BREVO_API_KEY) {
+      const r = await sendViaBrevoApi(email, subject, html, EMAIL_FROM, "ShopSphere");
+      return { sent: r.success };
+    }
+    const transporter = getTransporter();
+    if (!transporter) return { sent: false, message: "Email not configured" };
+    await transporter.sendMail({ from: `"ShopSphere" <${EMAIL_FROM}>`, to: email, subject, html });
+    console.log(`✅ Low-stock alert sent to ${email}`);
+    return { sent: true };
+  } catch (err) {
+    console.error("❌ Low-stock alert email error:", err);
+    return { sent: false, message: err.message };
+  }
+};
+
 export default {
   sendEmail,
   sendOrderConfirmationEmail,
