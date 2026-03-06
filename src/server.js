@@ -109,6 +109,16 @@ if (process.env.BREVO_API_KEY) {
   console.warn("   Production (Render): set BREVO_API_KEY (recommended) or BREVO_EMAIL + BREVO_SMTP_KEY. Local: set EMAIL_HOST, EMAIL_USER, EMAIL_PASS.");
 }
 
+// In production, password reset link must point to your live site (Vercel), not localhost
+if (process.env.NODE_ENV === "production") {
+  const frontendUrl = process.env.FRONTEND_URL || "";
+  if (!frontendUrl || frontendUrl.includes("localhost")) {
+    console.warn("⚠️  FRONTEND_URL not set or is localhost. Set FRONTEND_URL to your Vercel URL in Render → Environment so password reset emails contain the correct link.");
+  } else {
+    console.log("✅ FRONTEND_URL set (password reset links will use your live site)");
+  }
+}
+
 // Connect to database
 connectDB();
 
@@ -122,8 +132,11 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 // CORS configuration (supports production: single URL or comma-separated list)
+// Strip trailing slashes so origin matches browser (e.g. https://app.vercel.app not https://app.vercel.app/)
 const frontendUrls = process.env.FRONTEND_URL || "http://localhost:3000";
-const corsOrigins = frontendUrls.split(",").map((url) => url.trim());
+const corsOrigins = frontendUrls
+  .split(",")
+  .map((url) => url.trim().replace(/\/+$/, ""));
 const corsOptions = {
   origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
