@@ -72,3 +72,14 @@ export const validateRegister = [
   validatePassword(6),
   handleValidationErrors,
 ];
+
+export const validateForgotPassword = [
+  validateEmail(),
+  handleValidationErrors,
+];
+
+export const validateResetPassword = [
+  body("token").trim().notEmpty().withMessage("Reset token is required"),
+  validatePassword(6),
+  handleValidationErrors,
+];

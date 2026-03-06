@@ -463,6 +463,76 @@ export const sendOrderCancelledEmail = async (order, user) => {
   return await sendEmail(user.email, "orderCancelled", { order, user });
 };
 
+export const sendPasswordResetEmail = async (user, resetUrl) => {
+  const to = user?.email;
+  if (!to) return { success: false, error: "No recipient email" };
+
+  const EMAIL_FROM =
+    process.env.EMAIL_FROM ||
+    process.env.BREVO_EMAIL ||
+    process.env.EMAIL_USER ||
+    "noreply@shopsphere.com";
+
+  const subject = "Reset your ShopSphere password";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Password Reset</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
+        <div style="background-color: #1a1a1a; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: #10b981; margin: 0;">ShopSphere</h1>
+        </div>
+        <div style="background-color: white; padding: 28px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h2 style="color: #1a1a1a; margin-top: 0;">Reset your password</h2>
+          <p>Hi ${user?.name || "there"},</p>
+          <p>We received a request to reset your ShopSphere password.</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${resetUrl}" style="display: inline-block; background-color: #10b981; color: white; padding: 12px 26px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+              Reset Password
+            </a>
+          </div>
+          <p style="color: #666; font-size: 0.9em;">
+            This link will expire in 1 hour. If you didn’t request a reset, you can safely ignore this email.
+          </p>
+          <p style="color: #666; font-size: 0.9em; margin-top: 18px;">
+            If the button doesn’t work, copy and paste this link into your browser:
+            <br />
+            <span style="word-break: break-all;">${resetUrl}</span>
+          </p>
+          <p style="color: #666; font-size: 0.9em; margin-top: 24px;">
+            Best regards,<br />
+            The ShopSphere Team
+          </p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    if (process.env.BREVO_API_KEY) {
+      const r = await sendViaBrevoApi(to, subject, html, EMAIL_FROM, "ShopSphere");
+      return r;
+    }
+    const transporter = getTransporter();
+    if (!transporter) return { success: false, error: "Email not configured" };
+    const info = await transporter.sendMail({
+      from: `"ShopSphere" <${EMAIL_FROM}>`,
+      to,
+      subject,
+      html,
+    });
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Password reset email error:", error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Low-stock alert to admin (products: array of { name, countInStock, price })
 export const sendLowStockAlertEmail = async (products, threshold) => {
   const to = process.env.CLIENT_EMAIL || process.env.ADMIN_EMAIL || process.env.NOTIFY_EMAIL || "";
@@ -521,4 +591,5 @@ export default {
   sendOrderShippedEmail,
   sendOrderDeliveredEmail,
   sendOrderCancelledEmail,
+  sendPasswordResetEmail,
 };

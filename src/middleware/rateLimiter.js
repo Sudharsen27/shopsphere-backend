@@ -32,6 +32,20 @@ export const verifyLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful requests
 });
 
+// Forgot/reset password limiter (avoid email spam / brute force)
+export const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per 15 min per IP
+  validate,
+  message: {
+    success: false,
+    message: "Too many password reset requests, please try again later",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false,
+});
+
 // General API rate limiter (excludes auth routes to avoid double limiting)
 // In development, use a much higher limit to avoid 429s from HMR + many product/wishlist requests
 const isDev = process.env.NODE_ENV !== "production";

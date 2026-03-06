@@ -26,14 +26,16 @@
 
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-import { authLimiter, verifyLimiter } from "../middleware/rateLimiter.js";
-import { validateLogin, validateRegister } from "../middleware/validationMiddleware.js";
+import { authLimiter, passwordResetLimiter, verifyLimiter } from "../middleware/rateLimiter.js";
+import { validateForgotPassword, validateLogin, validateRegister, validateResetPassword } from "../middleware/validationMiddleware.js";
 import {
   loginUser,
   registerUser,
   verifyToken,
   updateProfile,
   changePassword,
+  forgotPassword,
+  resetPassword,
   addAddress,
   updateAddress,
   deleteAddress,
@@ -46,6 +48,10 @@ const router = express.Router();
 // 🔐 AUTH ROUTES (with rate limiting and validation)
 router.post("/register", authLimiter, validateRegister, registerUser);
 router.post("/login", authLimiter, validateLogin, loginUser);
+
+// 🔑 PASSWORD RESET (Public)
+router.post("/forgot-password", passwordResetLimiter, validateForgotPassword, forgotPassword);
+router.post("/reset-password", passwordResetLimiter, validateResetPassword, resetPassword);
 
 // 👤 PROFILE & TOKEN VERIFICATION (Protected)
 router.get("/verify", verifyLimiter, protect, verifyToken);

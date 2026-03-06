@@ -1,6 +1,8 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
 
 // Helper function to generate JWT token
 const generateToken = (userId) => {
@@ -299,6 +301,96 @@ export const changePassword = async (req, res) => {
       500,
       "Internal server error. Please try again later."
     );
+  }
+};
+
+// FORGOT PASSWORD (send reset link)
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    // Always return success to avoid email enumeration
+    const genericMessage =
+      "If an account exists for this email, you will receive a password reset link.";
+
+    if (!normalizedEmail) {
+      return sendSuccessResponse(res, 200, genericMessage);
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user || !user.isActive) {
+      return sendSuccessResponse(res, 200, genericMessage);
+    }
+
+    // Create raw token and store hashed token in DB
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetPasswordTokenHash = tokenHash;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save({ validateBeforeSave: false });
+
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetUrl = `${FRONTEND_URL}/reset-password/${resetToken}`;
+
+    const emailResult = await sendPasswordResetEmail(user, resetUrl);
+    if (!emailResult.success) {
+      // Still return generic success, but log for debugging
+      console.warn("⚠️ Password reset email not sent:", emailResult.error);
+    }
+
+    const isDev = process.env.NODE_ENV !== "production";
+    return sendSuccessResponse(res, 200, genericMessage, isDev ? { resetUrl } : null);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    // Still avoid enumeration; return generic message
+    return sendSuccessResponse(
+      res,
+      200,
+      "If an account exists for this email, you will receive a password reset link."
+    );
+  }
+};
+
+// RESET PASSWORD (using token)
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    const rawToken = String(token || "").trim();
+
+    if (!rawToken) {
+      return sendErrorResponse(res, 400, "Invalid reset token");
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordTokenHash: tokenHash,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select("+password");
+
+    if (!user) {
+      return sendErrorResponse(
+        res,
+        400,
+        "Reset link is invalid or has expired. Please request a new one."
+      );
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(password, salt);
+
+    // Clear token fields
+    user.resetPasswordTokenHash = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return sendSuccessResponse(res, 200, "Password reset successfully");
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return sendErrorResponse(res, 500, "Internal server error. Please try again later.");
   }
 };
 
