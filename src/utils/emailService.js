@@ -9,7 +9,8 @@ const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const sendViaBrevoApi = async (to, subject, html, fromEmail, fromName = "ShopSphere", bcc = null) => {
   // Prefer BREVO_API_KEY (Brevo → API Keys). Fallback to BREVO_SMTP_KEY so production can send without creating a new key.
-  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY;
+  const rawKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY;
+  const apiKey = rawKey ? String(rawKey).trim() : "";
   if (!apiKey) return { success: false, error: "Set BREVO_API_KEY or BREVO_SMTP_KEY in Render → Environment" };
 
   const body = {
