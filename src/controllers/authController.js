@@ -331,14 +331,20 @@ export const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save({ validateBeforeSave: false });
 
-    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    let FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+    if (process.env.NODE_ENV === "production" && (!FRONTEND_URL || FRONTEND_URL.includes("localhost"))) {
+      console.error(
+        "[Password reset] Production backend must set FRONTEND_URL to your Vercel URL (e.g. https://yourapp.vercel.app) in Render → Environment. Currently reset link would point to localhost."
+      );
+    }
     const resetUrl = `${FRONTEND_URL}/reset-password/${resetToken}`;
 
     const emailResult = await sendPasswordResetEmail(user, resetUrl);
-    if (!emailResult.success) {
-      // Still return generic success, but log for debugging (check Render/backend logs in production)
+    if (emailResult.success) {
+      console.log("[Password reset] Email sent successfully to", user.email);
+    } else {
       console.error(
-        "[Password reset] Email not sent. To fix in production: set BREVO_API_KEY on backend (Brevo → API Keys) and FRONTEND_URL to your Vercel URL. Error:",
+        "[Password reset] Email not sent. Set FRONTEND_URL (Vercel URL) and BREVO_API_KEY or BREVO_SMTP_KEY in Render → Environment. Error:",
         emailResult.error
       );
     }

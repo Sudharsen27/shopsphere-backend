@@ -8,9 +8,9 @@ dns.setDefaultResultOrder("ipv4first");
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const sendViaBrevoApi = async (to, subject, html, fromEmail, fromName = "ShopSphere", bcc = null) => {
-  // Use BREVO_API_KEY (from Brevo → API Keys). SMTP key often does not work for HTTP API on cloud hosts.
-  const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) return { success: false, error: "BREVO_API_KEY not set (use Brevo dashboard → SMTP & API → API Keys)" };
+  // Prefer BREVO_API_KEY (Brevo → API Keys). Fallback to BREVO_SMTP_KEY so production can send without creating a new key.
+  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY;
+  if (!apiKey) return { success: false, error: "Set BREVO_API_KEY or BREVO_SMTP_KEY in Render → Environment" };
 
   const body = {
     sender: { email: fromEmail, name: fromName },
@@ -515,7 +515,9 @@ export const sendPasswordResetEmail = async (user, resetUrl) => {
   `;
 
   try {
-    if (process.env.BREVO_API_KEY) {
+    // In production, prefer Brevo HTTP API (works on Render). Try API if we have any Brevo key.
+    const useApi = process.env.BREVO_API_KEY || (process.env.NODE_ENV === "production" && process.env.BREVO_SMTP_KEY);
+    if (useApi) {
       const r = await sendViaBrevoApi(to, subject, html, EMAIL_FROM, "ShopSphere");
       return r;
     }
