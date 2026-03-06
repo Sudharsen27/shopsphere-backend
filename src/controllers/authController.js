@@ -336,8 +336,11 @@ export const forgotPassword = async (req, res) => {
 
     const emailResult = await sendPasswordResetEmail(user, resetUrl);
     if (!emailResult.success) {
-      // Still return generic success, but log for debugging
-      console.warn("⚠️ Password reset email not sent:", emailResult.error);
+      // Still return generic success, but log for debugging (check Render/backend logs in production)
+      console.error(
+        "[Password reset] Email not sent. To fix in production: set BREVO_API_KEY on backend (Brevo → API Keys) and FRONTEND_URL to your Vercel URL. Error:",
+        emailResult.error
+      );
     }
 
     const isDev = process.env.NODE_ENV !== "production";

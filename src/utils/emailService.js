@@ -8,8 +8,9 @@ dns.setDefaultResultOrder("ipv4first");
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const sendViaBrevoApi = async (to, subject, html, fromEmail, fromName = "ShopSphere", bcc = null) => {
-  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY;
-  if (!apiKey) return { success: false, error: "BREVO_API_KEY or BREVO_SMTP_KEY not set" };
+  // Use BREVO_API_KEY (from Brevo → API Keys). SMTP key often does not work for HTTP API on cloud hosts.
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return { success: false, error: "BREVO_API_KEY not set (use Brevo dashboard → SMTP & API → API Keys)" };
 
   const body = {
     sender: { email: fromEmail, name: fromName },
