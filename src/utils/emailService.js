@@ -432,9 +432,9 @@ export const sendEmail = async (to, templateName, data, options = {}) => {
   }
 };
 
-// Client email gets a copy of every order (set CLIENT_EMAIL in Render/local .env)
+// Admin/client email gets a copy of order emails (set CLIENT_EMAIL, ADMIN_EMAIL, or NOTIFY_EMAIL in Render/local .env)
 const getClientEmail = () => {
-  const email = process.env.CLIENT_EMAIL || process.env.NOTIFY_EMAIL || "";
+  const email = process.env.CLIENT_EMAIL || process.env.ADMIN_EMAIL || process.env.NOTIFY_EMAIL || "";
   return email.trim() || null;
 };
 
@@ -462,7 +462,13 @@ export const sendOrderDeliveredEmail = async (order, user) => {
 };
 
 export const sendOrderCancelledEmail = async (order, user) => {
-  return await sendEmail(user.email, "orderCancelled", { order, user });
+  const to = user?.email;
+  if (!to) {
+    console.warn("⚠️ Order cancelled email skipped: no customer email");
+    return { success: false, error: "No customer email" };
+  }
+  const adminEmail = getClientEmail();
+  return await sendEmail(to, "orderCancelled", { order, user }, adminEmail ? { bcc: adminEmail } : {});
 };
 
 export const sendPasswordResetEmail = async (user, resetUrl) => {
