@@ -301,6 +301,23 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // 2b️⃣ Guest checkout: require email if not logged in
+    const isGuest = !req.user;
+    if (isGuest) {
+      const guestEmail = typeof req.body.guestEmail === "string" ? req.body.guestEmail.trim() : "";
+      if (!guestEmail) {
+        return res.status(400).json({
+          message: "Please enter your email to continue as guest",
+        });
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(guestEmail)) {
+        return res.status(400).json({
+          message: "Please enter a valid email address",
+        });
+      }
+    }
+
     // 3️⃣ Check stock & reduce stock safely
     for (const item of orderItems) {
       const product = await Product.findById(item.product);
@@ -353,9 +370,10 @@ export const createOrder = async (req, res) => {
       totalPrice = Number(totalPriceFromClient) || totalPrice;
     }
 
-    // 4️⃣ Create order
+    // 4️⃣ Create order (user or guest)
     const order = new Order({
-      user: req.user._id,
+      user: req.user ? req.user._id : null,
+      guestEmail: isGuest ? req.body.guestEmail.trim() : undefined,
       orderItems,
       shippingAddress,
       paymentMethod,
@@ -370,24 +388,30 @@ export const createOrder = async (req, res) => {
     });
 
     const createdOrder = await order.save();
-    
-    // Populate user for email
-    await createdOrder.populate("user", "name email");
-    
-    // Send order confirmation email to customer (and BCC to client if CLIENT_EMAIL set)
-    sendOrderConfirmationEmail(createdOrder, createdOrder.user)
-      .then((result) => {
-        if (result?.success) {
-          console.log(`✅ Order confirmation email sent for order ${createdOrder._id} to ${createdOrder.user?.email}`);
-        } else {
-          console.warn(`⚠️ Order confirmation email skipped or failed:`, result?.error || "unknown");
-        }
-      })
-      .catch((err) => {
-        console.error("❌ Failed to send order confirmation email:", err?.message || err);
-        // Don't fail the request if email fails
-      });
-    
+
+    // Recipient for confirmation email (user or guest)
+    let emailRecipient = null;
+    if (createdOrder.user) {
+      await createdOrder.populate("user", "name email");
+      emailRecipient = createdOrder.user;
+    } else if (createdOrder.guestEmail) {
+      emailRecipient = { name: "Guest", email: createdOrder.guestEmail };
+    }
+
+    if (emailRecipient) {
+      sendOrderConfirmationEmail(createdOrder, emailRecipient)
+        .then((result) => {
+          if (result?.success) {
+            console.log(`✅ Order confirmation email sent for order ${createdOrder._id} to ${emailRecipient.email}`);
+          } else {
+            console.warn(`⚠️ Order confirmation email skipped or failed:`, result?.error || "unknown");
+          }
+        })
+        .catch((err) => {
+          console.error("❌ Failed to send order confirmation email:", err?.message || err);
+        });
+    }
+
     res.status(201).json(createdOrder);
   } catch (error) {
     console.error("Create order error:", error);
@@ -522,7 +546,7 @@ export const trackOrderPublic = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
-    const orderEmail = order.user?.email || "";
+    const orderEmail = order.user?.email || order.guestEmail || "";
     if (!orderEmail || orderEmail.toLowerCase().trim() !== email.toLowerCase().trim()) {
       return res.status(403).json({ message: "Email does not match this order" });
     }

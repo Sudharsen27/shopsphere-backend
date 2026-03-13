@@ -77,7 +77,7 @@ import {
   trackOrderPublic,
 } from "../controllers/orderController.js";
 
-import protect from "../middleware/authMiddleware.js";
+import protect, { optionalProtect } from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
 
 const router = express.Router();
@@ -88,8 +88,8 @@ const router = express.Router();
  * ============================
  */
 
-// 🔒 Create a new order (Logged-in user)
-router.post("/", protect, createOrder);
+// Create order (logged-in user or guest with guestEmail in body)
+router.post("/", optionalProtect, createOrder);
 
 // 🔒 Get logged-in user's orders ONLY (must come before /:id)
 router.get("/myorders", protect, getMyOrders);
