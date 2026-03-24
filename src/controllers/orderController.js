@@ -251,6 +251,7 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import Coupon from "../models/Coupon.js";
+import Notification from "../models/Notification.js";
 import { sendOrderConfirmationEmail, sendOrderDeliveredEmail, sendOrderShippedEmail, sendOrderCancelledEmail } from "../utils/emailService.js";
 
 // Restore product stock when an order is cancelled (user or admin)
@@ -640,6 +641,18 @@ export const updateOrderStatus = async (req, res) => {
 
     const updatedOrder = await order.save();
 
+    // Create in-app notification after successful status update
+    if (order.user) {
+      const userId = order.user._id || order.user;
+      const notification = new Notification({
+        userId,
+        orderId: order._id,
+        title: "Order Update",
+        message: `Your order status is now ${status}`,
+      });
+      await notification.save();
+    }
+
     // Send email notifications based on status (non-blocking)
     if (updatedOrder.user) {
       if (status === "shipped") {
@@ -682,6 +695,18 @@ export const markOrderAsDelivered = async (req, res) => {
     order.status = "delivered";
 
     const updatedOrder = await order.save();
+
+    // Create in-app notification for delivered status updates
+    if (updatedOrder.user) {
+      const userId = updatedOrder.user._id || updatedOrder.user;
+      const notification = new Notification({
+        userId,
+        orderId: updatedOrder._id,
+        title: "Order Update",
+        message: "Your order status is now delivered",
+      });
+      await notification.save();
+    }
     
     // Send delivery confirmation email (non-blocking)
     if (updatedOrder.user) {

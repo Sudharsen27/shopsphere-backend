@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 import { sendLowStockAlertEmail } from "../utils/emailService.js";
 
 const LOW_STOCK_THRESHOLD = parseInt(process.env.LOW_STOCK_THRESHOLD || "5", 10);
@@ -134,6 +135,10 @@ export const bulkUpdateOrders = async (req, res) => {
     if (!ids || !Array.isArray(ids) || ids.length === 0 || !valid.includes(status)) {
       return res.status(400).json({ message: "ids array and valid status required" });
     }
+    const ordersBeforeUpdate = await Order.find({ _id: { $in: ids } })
+      .select("_id user")
+      .lean();
+
     const result = await Order.updateMany(
       { _id: { $in: ids } },
       { $set: { status } }
@@ -141,6 +146,20 @@ export const bulkUpdateOrders = async (req, res) => {
     if (status === "delivered") {
       await Order.updateMany({ _id: { $in: ids } }, { $set: { isDelivered: true, deliveredAt: new Date() } });
     }
+
+    const notifications = ordersBeforeUpdate
+      .filter((order) => order.user)
+      .map((order) => ({
+        userId: order.user,
+        orderId: order._id,
+        title: "Order Update",
+        message: `Your order status is now ${status}`,
+      }));
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+
     res.json({ message: `Updated ${result.modifiedCount} orders`, modifiedCount: result.modifiedCount });
   } catch (error) {
     console.error("Bulk orders error:", error);
